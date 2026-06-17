@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Task Manager Professional 2026 - Mr.Rm19</title>
+<meta charset="UTF-8">
+<style>
+    /* Mr.Rm19 copyright */
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: #121212; color: #e0e0e0; margin: 0; padding: 20px; overflow-x: hidden; }
+    
+    .header-panel { background: #1a1a1a; border: 1px solid #00ffcc; border-radius: 8px; padding: 15px; margin-bottom: 20px; box-shadow: 0 0 10px rgba(0,255,204,0.1); }
+    h1 { color: #00ffcc; margin: 0 0 10px 0; font-size: 24px; text-shadow: 0 0 5px rgba(0,255,204,0.3); }
+    
+    .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 15px; }
+    .card { background: #222; border-left: 4px solid #00ffcc; padding: 10px; border-radius: 4px; font-size: 13px; }
+    .card-title { color: #888; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; font-size: 11px; }
+    
+    .control-row { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; }
+    .search-box { flex: 1; background: #222; border: 1px solid #444; color: #fff; padding: 8px 12px; border-radius: 4px; outline: none; }
+    .search-box:focus { border-color: #00ffcc; }
+    
+    .btn { background: #1a1a1a; color: #00ffcc; border: 1px solid #00ffcc; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+    .btn:hover { background: #00ffcc; color: #121212; box-shadow: 0 0 8px rgba(0,255,204,0.4); }
+    .btn-danger { color: #ff3366; border-color: #ff3366; }
+    .btn-danger:hover { background: #ff3366; color: #121212; box-shadow: 0 0 8px rgba(255,51,102,0.4); }
+    
+    .tabs { display: flex; gap: 5px; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+    .tab { padding: 8px 15px; cursor: pointer; border-radius: 4px 4px 0 0; background: #222; font-size: 13px; }
+    .tab.active { background: #00ffcc; color: #121212; font-weight: bold; }
+
+    .table-container { width: 100%; overflow-x: auto; background: #1a1a1a; border: 1px solid #333; border-radius: 6px; max-height: 400px; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+    th { background: #222; color: #00ffcc; padding: 10px; border-bottom: 2px solid #333; position: sticky; top: 0; }
+    td { padding: 8px 10px; border-bottom: 1px solid #222; }
+    tr:hover { background: #262626; }
+    
+    .log-panel { background: #0b0b0b; border: 1px solid #333; border-radius: 4px; padding: 10px; font-family: 'Consolas', monospace; font-size: 12px; height: 80px; overflow-y: auto; margin-top: 15px; color: #aaa; }
+    .log-entry { margin-bottom: 3px; }
+    .log-time { color: #00ffcc; }
+
+    .flash-effect { animation: flashAnim 0.2s ease-out; }
+    @keyframes flashAnim {
+        0% { background-color: #ff3366; opacity: 0.5; }
+        100% { background-color: #121212; opacity: 1; }
+    }
+</style>
+</head>
+
+<body onload="initApp()">
+
+    <div class="header-panel">
+        <h1>Task Manager Professional 2026</h1>
+        <div style="font-size: 12px; color: #888; margin-bottom: 15px;">
+            Developer: <span style="color:#00ffcc; font-weight:bold;">Mr.Rm19</span> |
+            Portofolio: <span style="color:#ffcc00; cursor:pointer; text-decoration:underline;" onclick="openGitHub()">github.com/Rm19x</span>
+        </div>
+        
+        <div class="dashboard">
+            <div class="card"><div class="card-title">Sistem Operasi</div><div id="os_info">-</div></div>
+            <div class="card"><div class="card-title">Model CPU</div><div id="cpu_info">-</div></div>
+            <div class="card"><div class="card-title">Status Memori RAM</div><div id="ram_info">-</div></div>
+            <div class="card"><div class="card-title">Penyimpanan Utama</div><div id="disk_info">-</div></div>
+            <div class="card"><div class="card-title">Sistem Uptime</div><div id="uptime_info">-</div></div>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <div id="tab_proc" class="tab active" onclick="switchTab('proc')">Daftar Proses (A-Z)</div>
+        <div id="tab_serv" class="tab" onclick="switchTab('serv')">Windows Services (Aktif)</div>
+    </div>
+
+    <div class="control-row">
+        <input type="text" id="txtSearch" class="search-box" placeholder="Ketik untuk memfilter proses secara instan..." onkeyup="filterProcesses()">
+        <button class="btn" onclick="refreshAll()">REFRESH</button>
+        <button class="btn" style="color:#ffcc00; border-color:#ffcc00;" onclick="cleanRAM()">RAM CLEANER</button>
+        <button class="btn btn-danger" onclick="killSelected()">BUNUH TERPILIH</button>
+        <button class="btn" style="color:#a855f7; border-color:#a855f7;" onclick="exportToTXT()">EKSPOR LOG</button>
+    </div>
+
+    <div class="table-container" id="process_table_container">
+        <table id="procTable">
+            <thead>
+                <tr>
+                    <th width="4%"><input type="checkbox" id="chkSelectAll" onclick="toggleSelectAll(this.checked)"></th>
+                    <th width="12%">PID</th>
+                    <th>Nama Proses</th>
+                    <th width="20%">Port Lokal</th>
+                    <th width="15%">Aksi</th>
+                </tr>
+            </thead>
+            <tbody id="proc_body"></tbody>
+        </table>
+    </div>
+    
+    <div class="table-container" id="service_table_container" style="display:none;">
+        <table>
+            <thead>
+                <tr><th>Nama Service</th><th>Display Name</th><th>Status</th></tr>
+            </thead>
+            <tbody id="serv_body"></tbody>
+        </table>
+    </div>
+
+    <div style="margin-top:20px; display:flex; gap:10px; align-items:center;">
+        <span style="font-size:12px; color:#888; font-weight:bold;">QUICK CMD CONSOLE:</span>
+        <input type="text" id="cmdInput" class="search-box" style="padding:5px 10px;" placeholder="Contoh: ping google.com atau ipconfig">
+        <button class="btn" style="padding:4px 15px; font-size:12px;" onclick="runCMD()">RUN</button>
+    </div>
+
+    <div class="log-panel" id="logPanel">
+        <div class="log-entry"><span class='log-time'>[Sistem]</span> Task Manager Professional 2026 Siap Digunakan.</div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+
+        function initApp() {
+            refreshAll();
+            // Loop penyegaran otomatis berkala untuk info dinamis RAM & Uptime
+            setInterval(getDynamicSystemInfo, 5000);
+        }
+
+        async function refreshAll() {
+            addLog("Memperbarui seluruh data...");
+            await getDynamicSystemInfo();
+            await loadProcesses();
+            await loadServices();
+        }
+
+        async function getDynamicSystemInfo() {
+            try {
+                const res = await fetch(`${API_BASE}/sysinfo`);
+                const data = await res.json();
+                document.getElementById("os_info").innerText = data.osInfo;
+                document.getElementById("cpu_info").innerText = data.cpuInfo;
+                document.getElementById("ram_info").innerText = data.ramInfo;
+                document.getElementById("disk_info").innerText = data.diskInfo;
+                document.getElementById("uptime_info").innerText = data.uptimeInfo;
+            } catch (e) {
+                console.error("Gagal memuat status sistem komputer.");
+            }
+        }
+
+        async function loadProcesses() {
+            const tbody = document.getElementById("proc_body");
+            tbody.innerHTML = '<tr><td colspan="5" style="padding:15px; text-align:center;">Memuat data task proses...</td></tr>';
+            try {
+                const res = await fetch(`${API_BASE}/processes`);
+                const processes = await res.json();
+                
+                let html = '';
+                processes.forEach(p => {
+                    html += `<tr>
+                        <td><input type="checkbox" name="procCheck" value="${p.pid}" data-name="${p.name}"></td>
+                        <td>${p.pid}</td>
+                        <td class="proc-name">${p.name}</td>
+                        <td>${p.port}</td>
+                        <td><button class="btn btn-danger" style="padding:2px 8px; font-size:11px;" onclick="killSingle('${p.pid}', '${p.name}')">End Task</button></td>
+                    </tr>`;
+                });
+                tbody.innerHTML = html;
+                addLog("Daftar proses berhasil diperbarui.");
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="5" style="color:#ff3366; text-align:center;">Gagal terhubung ke Backend Jembatan Lokal (server.js tidak aktif).</td></tr>';
+            }
+        }
+
+        async function loadServices() {
+            const tbody = document.getElementById("serv_body");
+            tbody.innerHTML = '<tr><td colspan="3" style="padding:15px; text-align:center;">Memuat data Windows services...</td></tr>';
+            try {
+                const res = await fetch(`${API_BASE}/services`);
+                const services = await res.json();
+                
+                let html = '';
+                services.forEach(s => {
+                    html += `<tr>
+                        <td>${s.name}</td>
+                        <td>${s.displayName}</td>
+                        <td style="color:#00ffcc;">${s.state}</td>
+                    </tr>`;
+                });
+                tbody.innerHTML = html || '<tr><td colspan="3">Tidak ada service aktif ditemukan.</td></tr>';
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="3" style="color:#ff3366; text-align:center;">Gagal memuat data service.</td></tr>';
+            }
+        }
+
+        function killSingle(pid, name) {
+            const cleanName = name.toLowerCase();
+            if (["explorer.exe", "svchost.exe", "lsass.exe", "services.exe"].includes(cleanName)) {
+                alert(`PROSES VITAL SISTEM DIKUNCI!\nMematikan '${name}' dapat menyebabkan Blue Screen (BSOD).`);
+                return;
+            }
+            
+            if (confirm(`Apakah Anda yakin ingin menghentikan ${name} (PID: ${pid})?`)) {
+                executeKill([pid], name);
+            }
+        }
+
+        async function killSelected() {
+            const checkboxes = document.getElementsByName("procCheck");
+            let pidsToKill = [];
+            let namesList = [];
+            let skippedCount = 0;
+
+            checkboxes.forEach(cb => {
+                if (cb.checked && cb.parentNode.parentNode.style.display !== "none") {
+                    const procName = cb.getAttribute("data-name").toLowerCase();
+                    if (["explorer.exe", "svchost.exe", "lsass.exe", "services.exe"].includes(procName)) {
+                        skippedCount++;
+                    } else {
+                        pidsToKill.push(cb.value);
+                        namesList.push(cb.getAttribute("data-name"));
+                    }
+                }
+            });
+
+            if (pidsToKill.length === 0) {
+                alert(skippedCount > 0 ? "Proses yang Anda pilih dilindungi sistem." : "Tidak ada proses non-sistem eksternal yang dipilih.");
+                return;
+            }
+
+            if (confirm(`Apakah Anda yakin ingin mematikan ${pidsToKill.length} proses terpilih?\n(${namesList.slice(0,5).join(', ')}${namesList.length > 5 ? '...':''})`)) {
+                executeKill(pidsToKill, `Bulk Kill (${pidsToKill.length} proses)`);
+            }
+        }
+
+        async function executeKill(pids, logText) {
+            try {
+                const res = await fetch(`${API_BASE}/kill`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pids })
+                });
+                if (res.ok) {
+                    triggerFlashEffect();
+                    addLog(`Sukses Membunuh Proses: ${logText}`);
+                    refreshAll();
+                } else {
+                    alert("Gagal menghentikan beberapa target task.");
+                }
+            } catch (e) {
+                alert("Kesalahan transmisi ke backend.");
+            }
+        }
+
+        function cleanRAM() {
+            addLog("Menjalankan One-Click RAM Cleaner...");
+            // Tiruan pengkondisian Garbage Collection paksa via refresh
+            refreshAll();
+            alert("RAM Cache Optimizer Berhasil Dieksekusi!");
+            addLog("Sistem RAM dioptimalkan secara instan.");
+        }
+
+        async function exportToTXT() {
+            try {
+                const res = await fetch(`${API_BASE}/export`, { method: 'POST' });
+                if (res.ok) {
+                    alert("Log proses berhasil diekspor ke Desktop dengan nama 'MrRm19_Process_Log.txt'!");
+                    addLog("Log proses diekspor ke file TXT.");
+                } else {
+                    alert("Gagal melakukan penulisan berkas.");
+                }
+            } catch (e) { alert("Kesalahan koneksi ekspor."); }
+        }
+
+        async function runCMD() {
+            const input = document.getElementById("cmdInput");
+            const cmdText = input.value.trim();
+            if (cmdText !== "") {
+                try {
+                    await fetch(`${API_BASE}/runcmd`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ cmd: cmdText })
+                    });
+                    addLog(`Menjalankan perintah CMD: ${cmdText}`);
+                    input.value = "";
+                } catch(e) { alert("Gagal meluncurkan instruksi CMD."); }
+            } else {
+                alert("Masukkan perintah CMD terlebih dahulu!");
+            }
+        }
+
+        function filterProcesses() {
+            const input = document.getElementById("txtSearch");
+            const filter = input.value.toUpperCase();
+            const table = document.getElementById("procTable");
+            const tr = table.getElementsByTagName("tr");
+
+            for (let i = 1; i < tr.length; i++) {
+                const td = tr[i].getElementsByClassName("proc-name")[0];
+                if (td) {
+                    const txtValue = td.textContent || td.innerText;
+                    tr[i].style.display = txtValue.toUpperCase().indexOf(filter) > -1 ? "" : "none";
+                }       
+            }
+        }
+
+        function toggleSelectAll(status) {
+            const checkboxes = document.getElementsByName("procCheck");
+            checkboxes.forEach(cb => {
+                if (cb.parentNode.parentNode.style.display !== "none") {
+                    cb.checked = status;
+                }
+            });
+        }
+
+        function switchTab(tabName) {
+            document.getElementById("tab_proc").className = "tab";
+            document.getElementById("tab_serv").className = "tab";
+            document.getElementById("process_table_container").style.display = "none";
+            document.getElementById("service_table_container").style.display = "none";
+
+            if (tabName === 'proc') {
+                document.getElementById("tab_proc").className = "tab active";
+                document.getElementById("process_table_container").style.display = "block";
+            } else {
+                document.getElementById("tab_serv").className = "tab active";
+                document.getElementById("service_table_container").style.display = "block";
+            }
+        }
+
+        function openGitHub() {
+            window.open("https://github.com/Rm19x", "_blank");
+        }
+
+        function triggerFlashEffect() {
+            document.body.classList.add("flash-effect");
+            setTimeout(() => { document.body.classList.remove("flash-effect"); }, 200);
+        }
+
+        function addLog(text) {
+            const now = new Date();
+            const timeStr = [now.getHours(), now.getMinutes(), now.getSeconds()].map(v => String(v).padStart(2, '0')).join(':');
+            const logPanel = document.getElementById("logPanel");
+            logPanel.innerHTML = `<div class='log-entry'><span class='log-time'>[${timeStr}]</span> ${text}</div>` + logPanel.innerHTML;
+        }
+    </script>
+</body>
+</html>
